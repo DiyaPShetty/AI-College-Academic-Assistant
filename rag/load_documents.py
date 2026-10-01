@@ -1,22 +1,42 @@
 from langchain_community.document_loaders import PyPDFDirectoryLoader
 
-print("Starting PDF loading...")
 
-loader = PyPDFDirectoryLoader(
-    "data/academic_regulations"
-)
+def load_college_documents():
+    documents = []
 
-print("Loader created.")
-print("Loading regulations PDF...")
+    # Load academic regulations
+    regulations_loader = PyPDFDirectoryLoader(
+        "data/academic_regulations"
+    )
+    regulations = regulations_loader.load()
+    documents.extend(regulations)
 
-documents = loader.load()
+    # Load department syllabus
+    syllabus_loader = PyPDFDirectoryLoader(
+        "data/department_syllabus"
+    )
+    syllabus = syllabus_loader.load()
+    documents.extend(syllabus)
 
-print(f"Finished loading!")
-print(f"Total pages loaded: {len(documents)}")
+    return documents
 
-for i, doc in enumerate(documents[:3]):
-    print(f"\n--- Page {i + 1} ---")
-    print("Source:", doc.metadata.get("source"))
-    print("Page:", doc.metadata.get("page"))
-    print("Text:")
-    print(doc.page_content[:500])
+
+if __name__ == "__main__":
+    documents = load_college_documents()
+
+    print(f"Total pages loaded: {len(documents)}")
+
+    print("\nPages from each source:")
+
+    regulations_count = sum(
+        1 for doc in documents
+        if "academic_regulations" in doc.metadata.get("source", "")
+    )
+
+    syllabus_count = sum(
+        1 for doc in documents
+        if "department_syllabus" in doc.metadata.get("source", "")
+    )
+
+    print(f"Regulations: {regulations_count}")
+    print(f"Syllabus: {syllabus_count}")
