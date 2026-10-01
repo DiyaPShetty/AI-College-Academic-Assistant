@@ -1,66 +1,54 @@
 from langchain_community.document_loaders import PyPDFDirectoryLoader
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_chroma import Chroma
-from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 
-def load_college_documents():
-    documents = []
+# ---------------------------------------------------------
+# Load syllabus documents
+# ---------------------------------------------------------
 
-    # Load academic regulations
-    regulations_loader = PyPDFDirectoryLoader(
-        "data/academic_regulations"
-    )
-    documents.extend(regulations_loader.load())
+loader = PyPDFDirectoryLoader(
+    "data/department_syllabus"
+)
 
-    # Load department syllabus
-    syllabus_loader = PyPDFDirectoryLoader(
-        "data/department_syllabus"
-    )
-    documents.extend(syllabus_loader.load())
+documents = loader.load()
 
-    return documents
+print(f"Total pages loaded: {len(documents)}")
 
 
-def create_chunks(documents):
-    text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=1000,
-        chunk_overlap=200
-    )
+# ---------------------------------------------------------
+# Create larger chunks
+# ---------------------------------------------------------
 
-    return text_splitter.split_documents(documents)
+text_splitter = RecursiveCharacterTextSplitter(
+    chunk_size=2500,
+    chunk_overlap=400
+)
 
+chunks = text_splitter.split_documents(documents)
 
-def create_vectorstore(chunks):
-    print("Loading embedding model...")
-
-    embeddings = HuggingFaceEmbeddings(
-        model_name="sentence-transformers/all-MiniLM-L6-v2"
-    )
-
-    print("Creating ChromaDB vector store...")
-
-    vectorstore = Chroma.from_documents(
-        documents=chunks,
-        embedding=embeddings,
-        persist_directory="chroma_db"
-    )
-
-    return vectorstore
+print(f"Total chunks created: {len(chunks)}")
 
 
-if __name__ == "__main__":
-    print("Loading college documents...")
+# ---------------------------------------------------------
+# Embedding model
+# ---------------------------------------------------------
 
-    documents = load_college_documents()
-    print(f"Pages loaded: {len(documents)}")
+embeddings = HuggingFaceEmbeddings(
+    model_name="sentence-transformers/all-MiniLM-L6-v2"
+)
 
-    print("Creating text chunks...")
 
-    chunks = create_chunks(documents)
-    print(f"Total chunks created: {len(chunks)}")
+# ---------------------------------------------------------
+# Create Chroma vector database
+# ---------------------------------------------------------
 
-    vectorstore = create_vectorstore(chunks)
+vectorstore = Chroma.from_documents(
+    documents=chunks,
+    embedding=embeddings,
+    persist_directory="chroma_db"
+)
 
-    print("\nVector store created successfully!")
-    print("Location: chroma_db/")
+print("Vector store created successfully!")
+print("Location: chroma_db/")

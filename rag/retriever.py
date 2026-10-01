@@ -2,7 +2,8 @@ from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_chroma import Chroma
 
 
-def get_retriever():
+def get_retriever(k=3):
+
     embeddings = HuggingFaceEmbeddings(
         model_name="sentence-transformers/all-MiniLM-L6-v2"
     )
@@ -12,8 +13,6 @@ def get_retriever():
         embedding_function=embeddings
     )
 
-    retriever = vectorstore.as_retriever(
-        search_kwargs={"k": 3}
+    return vectorstore.as_retriever(
+        search_kwargs={"k": k}
     )
-
-    return retriever
