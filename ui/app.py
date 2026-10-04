@@ -1,11 +1,6 @@
 import sys
 import os
 
-
-# =========================================================
-# ADD PROJECT ROOT TO PYTHON PATH
-# =========================================================
-
 sys.path.append(
     os.path.dirname(
         os.path.dirname(
@@ -14,14 +9,10 @@ sys.path.append(
     )
 )
 
-
 import streamlit as st
+
 from agents.app_agent import run_agent
 
-
-# =========================================================
-# PAGE CONFIGURATION
-# =========================================================
 
 st.set_page_config(
     page_title="AI College Academic Assistant",
@@ -34,72 +25,72 @@ st.set_page_config(
 # SESSION STATE
 # =========================================================
 
-# Store conversation history
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-
-# Store the current study plan
 if "study_plan" not in st.session_state:
     st.session_state.study_plan = ""
 
 
 # =========================================================
-# TITLE
+# HEADER
 # =========================================================
 
 st.title("🎓 AI College Academic Assistant")
 
 st.write(
-    "Ask questions about academics, syllabus, college regulations, "
-    "or request and modify a study plan."
+    "Ask questions about college academics, regulations, "
+    "syllabus, or create and modify personalized study plans."
 )
 
 
 # =========================================================
-# DISPLAY PREVIOUS CHAT
+# SIDEBAR
+# =========================================================
+
+with st.sidebar:
+
+    st.header("System")
+
+    st.success("RAG enabled")
+    st.success("LangGraph workflow enabled")
+    st.success("Study planner enabled")
+    st.success("Calculator tool enabled")
+
+    if st.button("Clear conversation"):
+
+        st.session_state.messages = []
+        st.session_state.study_plan = ""
+
+        st.rerun()
+
+
+# =========================================================
+# PREVIOUS MESSAGES
 # =========================================================
 
 for message in st.session_state.messages:
 
     with st.chat_message(message["role"]):
 
-        content = message["content"]
-
-        # Clean HTML line-break tags returned by the LLM
-        content = content.replace("<br>", " • ")
-        content = content.replace("<br/>", " • ")
-        content = content.replace("<br />", " • ")
-
-        st.markdown(content)
+        st.markdown(
+            message["content"]
+        )
 
 
 # =========================================================
-# CHAT INPUT
+# USER INPUT
 # =========================================================
 
 user_query = st.chat_input(
-    "Ask your question..."
+    "Ask your academic question..."
 )
 
-
-# =========================================================
-# PROCESS USER QUERY
-# =========================================================
 
 if user_query:
 
     # -----------------------------------------------------
-    # DISPLAY USER MESSAGE
-    # -----------------------------------------------------
-
-    with st.chat_message("user"):
-
-        st.markdown(user_query)
-
-
-    # -----------------------------------------------------
-    # SAVE USER MESSAGE
+    # SHOW USER
     # -----------------------------------------------------
 
     st.session_state.messages.append(
@@ -109,93 +100,119 @@ if user_query:
         }
     )
 
+    with st.chat_message("user"):
+        st.markdown(user_query)
+
 
     # -----------------------------------------------------
-    # CALL LANGGRAPH
+    # PREVIOUS HISTORY
+    # -----------------------------------------------------
+
+    history = st.session_state.messages[:-1]
+
+
+    # -----------------------------------------------------
+    # RUN LANGGRAPH
     # -----------------------------------------------------
 
     with st.chat_message("assistant"):
 
-        with st.spinner("Thinking..."):
+        with st.spinner(
+            "Analyzing → retrieving → generating → reviewing..."
+        ):
 
             result = run_agent(
-                user_query,
-                st.session_state.study_plan
+                user_query=user_query,
+                current_plan=st.session_state.study_plan,
+                conversation_history=history
             )
 
 
-        # -------------------------------------------------
-        # GET RESULT
-        # -------------------------------------------------
-
-        answer = result["answer"]
-        intent = result["intent"]
-
-
-        # -------------------------------------------------
-        # MAKE SURE ANSWER IS A STRING
-        # -------------------------------------------------
-
-        if answer is None:
-
-            answer = "I couldn't generate a response."
-
-        else:
-
-            answer = str(answer)
-
-
-        # -------------------------------------------------
-        # SAVE / UPDATE STUDY PLAN
-        # -------------------------------------------------
-
-        if intent == "STUDY_PLAN":
-
-            if answer.strip():
-
-                st.session_state.study_plan = answer
-
-
-        # -------------------------------------------------
-        # CLEAN LLM HTML TAGS
-        # -------------------------------------------------
-
-        display_answer = answer
-
-        display_answer = display_answer.replace(
-            "<br>",
-            " • "
+        answer = str(
+            result.get(
+                "answer",
+                "I couldn't generate a response."
+            )
         )
 
-        display_answer = display_answer.replace(
-            "<br/>",
-            " • "
+        st.markdown(answer)
+
+
+        # -------------------------------------------------
+        # METADATA
+        # -------------------------------------------------
+
+        intent = result.get(
+            "intent",
+            "UNKNOWN"
         )
-
-        display_answer = display_answer.replace(
-            "<br />",
-            " • "
-        )
-
-
-        # -------------------------------------------------
-        # DISPLAY ANSWER
-        # -------------------------------------------------
-
-        st.markdown(display_answer)
-
-
-        # -------------------------------------------------
-        # DISPLAY INTENT
-        # -------------------------------------------------
 
         st.caption(
-            f"Intent detected: {intent}"
+            f"Intent: {intent}"
         )
+
+
+        # -------------------------------------------------
+        # SOURCES
+        # -------------------------------------------------
+
+        documents = result.get(
+            "retrieved_docs",
+            []
+        )
+
+        if documents:
+
+            with st.expander(
+                "📚 Sources"
+            ):
+
+                seen = set()
+
+                for document in documents:
+
+                    source = document.metadata.get(
+                        "source",
+                        "Unknown"
+                    )
+
+                    page = document.metadata.get(
+                        "page",
+                        "Unknown"
+                    )
+
+                    key = (
+                        source,
+                        page
+                    )
+
+                    if key in seen:
+                        continue
+
+                    seen.add(key)
+
+                    st.write(
+                        f"• {source} — page {page}"
+                    )
+
+
+        # -------------------------------------------------
+        # REVIEW STATUS
+        # -------------------------------------------------
+
+        review_status = result.get(
+            "review_status"
+        )
+
+        if review_status:
+
+            st.caption(
+                f"Response review: {review_status}"
+            )
 
 
     # -----------------------------------------------------
-    # SAVE ASSISTANT RESPONSE
+    # SAVE ASSISTANT MESSAGE
     # -----------------------------------------------------
 
     st.session_state.messages.append(
@@ -204,3 +221,16 @@ if user_query:
             "content": answer
         }
     )
+
+
+    # -----------------------------------------------------
+    # SAVE STUDY PLAN
+    # -----------------------------------------------------
+
+    if result.get("study_plan"):
+
+        if result.get("intent") == "STUDY_PLAN":
+
+            st.session_state.study_plan = (
+                result["study_plan"]
+            )
