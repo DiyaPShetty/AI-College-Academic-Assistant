@@ -19,7 +19,7 @@ def get_llm():
 
 
 # =========================================================
-# Vector Store
+# VECTOR STORE
 # =========================================================
 
 def get_vectorstore():
@@ -28,368 +28,369 @@ def get_vectorstore():
         model_name="sentence-transformers/all-MiniLM-L6-v2"
     )
 
-    vectorstore = Chroma(
+    return Chroma(
         persist_directory="chroma_db",
+        collection_name="college_knowledge",
         embedding_function=embeddings
     )
 
-    return vectorstore
-
 
 # =========================================================
-# Retrieve Syllabus Context
+# SYLLABUS RETRIEVAL
 # =========================================================
 
-def get_syllabus_context(subject):
+def get_syllabus_context(subjects):
+
+    if isinstance(subjects, str):
+        subjects = [subjects]
 
     vectorstore = get_vectorstore()
 
-    # -----------------------------------------------------
-    # DBMS-specific retrieval
-    # -----------------------------------------------------
-
-    if subject.upper() == "DBMS":
-
-        results = vectorstore.similarity_search(
-            "CS2102-1 DATABASE MANAGEMENT SYSTEMS",
-            k=10
-        )
-
-        relevant_documents = []
-
-        for document in results:
-
-            page = document.metadata.get("page")
-            content = document.page_content.upper()
-
-            if (
-                page in [128, 129]
-                and (
-                    "DATABASE MANAGEMENT SYSTEMS" in content
-                    or "CS2102-1" in content
-                    or "BASIC SQL" in content
-                    or "STORAGE AND INDEXING" in content
-                    or "TRANSACTION MANAGEMENT" in content
-                )
-            ):
-                relevant_documents.append(document)
-
-    # -----------------------------------------------------
-    # General subject retrieval
-    # -----------------------------------------------------
-
-    else:
-
-        relevant_documents = vectorstore.similarity_search(
-            f"{subject} official syllabus",
-            k=5
-        )
-
-
-    # =====================================================
-    # Remove duplicate documents
-    # =====================================================
-
-    unique_documents = []
-
+    all_documents = []
     seen = set()
 
-    for document in relevant_documents:
+    for subject in subjects:
+
+        if subject.lower() == "dbms":
+
+            queries = [
+                "DATABASE MANAGEMENT SYSTEMS CS2102-1 UNIT-I",
+                "DATABASE MANAGEMENT SYSTEMS CS2102-1 UNIT-II",
+                "DATABASE MANAGEMENT SYSTEMS CS2102-1 UNIT-III"
+            ]
+
+        else:
+
+            queries = [
+                f"{subject} syllabus UNIT-I UNIT-II UNIT-III",
+                f"{subject} course contents topics"
+            ]
+
+        for query in queries:
+
+            documents = vectorstore.similarity_search(
+                query,
+                k=4,
+                filter={
+                    "document_type": "department_syllabus"
+                }
+            )
+
+            for document in documents:
+
+                content = document.page_content.strip()
+
+                if not content:
+                    continue
+
+                if subject.lower() == "dbms":
+
+                    lower_content = content.lower()
+
+                    if "is1601-1" in lower_content:
+                        continue
+
+                    if "database applications" in lower_content:
+                        continue
+
+                if content in seen:
+                    continue
+
+                seen.add(content)
+                all_documents.append(document)
+
+    # Limit context size
+    all_documents = all_documents[:8]
+
+    context_parts = []
+
+    for document in all_documents:
+
+        source = document.metadata.get(
+            "source",
+            "Unknown"
+        )
+
+        page = document.metadata.get(
+            "page",
+            "Unknown"
+        )
 
         content = document.page_content.strip()
 
-        if content not in seen:
+        if len(content) > 3500:
+            content = content[:3500]
 
-            seen.add(content)
+        context_parts.append(
+            f"""
+SOURCE: {source}
+PAGE: {page}
 
-            unique_documents.append(document)
+{content}
+"""
+        )
 
+    context = "\n\n".join(context_parts)
 
-    # =====================================================
-    # Sort documents by page
-    # =====================================================
-
-    unique_documents.sort(
-        key=lambda document: document.metadata.get("page", 0)
-    )
-
-
-    # =====================================================
-    # Keep only the most relevant documents
-    # =====================================================
-
-    documents = unique_documents[:3]
-
-
-    # =====================================================
-    # Combine document content
-    # =====================================================
-
-    context = "\n\n".join(
-        document.page_content
-        for document in documents
-    )
-
-
-    return context, documents
+    return context, all_documents
 
 
 # =========================================================
-# Create Study Plan
+# EXTRACT STUDY PLAN TABLE
+# =========================================================
+
+def extract_plan_table(answer):
+
+    if not answer:
+        return ""
+
+    answer = str(answer).strip()
+
+    # Remove markdown code fences
+    answer = answer.replace("```markdown", "")
+    answer = answer.replace("```md", "")
+    answer = answer.replace("```", "")
+
+    answer = answer.strip()
+
+    # Find lines that look like table rows
+    lines = [
+        line.strip()
+        for line in answer.splitlines()
+        if line.strip().startswith("|")
+    ]
+
+    if not lines:
+        return ""
+
+    # Find the table header
+    header_index = None
+
+    for i, line in enumerate(lines):
+
+        normalized = (
+            line.lower()
+            .replace(" ", "")
+            .replace("\t", "")
+        )
+
+        if (
+            "day" in normalized
+            and "subject" in normalized
+            and "unit" in normalized
+            and "topics" in normalized
+            and "duration" in normalized
+            and "studygoal" in normalized
+        ):
+
+            header_index = i
+            break
+
+    if header_index is None:
+        return ""
+
+    table_lines = lines[header_index:]
+
+    if len(table_lines) < 2:
+        return ""
+
+    # Standard header
+    header = (
+        "| Day | Subject | Unit | Topics | Duration | Study Goal |"
+    )
+
+    # Extract actual data rows
+    data_rows = []
+
+    for line in table_lines[1:]:
+
+        cells = [
+            cell.strip()
+            for cell in line.strip("|").split("|")
+        ]
+
+        if len(cells) < 6:
+            continue
+
+        # Ignore separator row
+        if all(
+            "-" in cell
+            for cell in cells
+        ):
+            continue
+
+        # First column must be a day number
+        try:
+            int(cells[0])
+        except ValueError:
+            continue
+
+        cells = cells[:6]
+
+        normalized_row = (
+            "| "
+            + " | ".join(cells)
+            + " |"
+        )
+
+        data_rows.append(normalized_row)
+
+    if not data_rows:
+        return ""
+
+    separator = (
+        "|-----|---------|------|--------|----------|------------|"
+    )
+
+    table = "\n".join(
+        [header, separator] + data_rows
+    )
+
+    return table
+
+
+# =========================================================
+# CREATE STUDY PLAN
 # =========================================================
 
 def create_study_plan(
-    subject,
+    subjects,
     duration_days,
     hours_per_day
 ):
 
-    # =====================================================
-    # RETRIEVE SYLLABUS
-    # =====================================================
+    if isinstance(subjects, str):
+        subjects = [subjects]
 
-    syllabus_context, documents = get_syllabus_context(subject)
+    if not subjects:
 
-    print("\n===== RETRIEVED SYLLABUS CONTEXT =====\n")
-    print(syllabus_context)
+        return (
+            "No subject was specified.",
+            []
+        )
 
-    print("\n===== END CONTEXT =====\n")
+    if duration_days <= 0:
 
+        return (
+            "The number of study days must be greater than zero.",
+            []
+        )
 
-    # =====================================================
-    # CHECK RETRIEVED CONTEXT
-    # =====================================================
+    if hours_per_day <= 0:
+
+        return (
+            "Study hours per day must be greater than zero.",
+            []
+        )
+
+    # -----------------------------------------------------
+    # Retrieve official syllabus
+    # -----------------------------------------------------
+
+    syllabus_context, documents = get_syllabus_context(
+        subjects
+    )
 
     if not syllabus_context.strip():
 
         return (
-            "No relevant syllabus information was retrieved.",
+            "I could not find the requested subject in "
+            "the official department syllabus.",
             documents
         )
 
+    subject_text = ", ".join(subjects)
 
-    # =====================================================
-    # GET LLM
-    # =====================================================
-
-    llm = get_llm()
-
-
-    # =====================================================
-    # MAIN PROMPT
-    # =====================================================
+    # -----------------------------------------------------
+    # Planner prompt
+    # -----------------------------------------------------
 
     prompt = f"""
-Create a {duration_days}-day study plan for {subject}.
+You are the study-planning component of a college
+academic assistant.
 
-Study time:
-{hours_per_day} hours per day.
+Create a personalized {duration_days}-day study plan.
 
-You MUST use ONLY the official syllabus content
-provided below.
+SUBJECTS:
+{subject_text}
 
-==================================================
-OFFICIAL SYLLABUS
-==================================================
+AVAILABLE STUDY TIME:
+{hours_per_day} hours per day
+
+OFFICIAL DEPARTMENT SYLLABUS:
 
 {syllabus_context}
 
-==================================================
-STRICT RULES
-==================================================
 
-1. Use ONLY topics explicitly present in the
-   official syllabus.
+STRICT RULES:
 
-2. Preserve the exact terminology used in the
-   official syllabus.
+1. Use ONLY the supplied official syllabus.
 
-3. Preserve the official unit numbers and unit
-   names exactly as they appear in the syllabus.
+2. Do not use general knowledge.
 
-4. Do NOT create new units.
+3. Do not invent academic topics.
 
-5. Do NOT rename units.
+4. Do not use topics from another course.
 
-6. Do NOT change the official unit numbering.
+5. For DBMS, use DATABASE MANAGEMENT SYSTEMS
+   course CS2102-1.
 
-7. Do NOT invent topics or subtopics.
+6. Do not use DATABASE APPLICATIONS lab
+   IS1601-1 content.
 
-8. Do NOT use outside knowledge.
+7. Use the actual syllabus units.
 
-9. Do NOT add textbooks.
+8. Do not use Course Objectives as study topics.
 
-10. Do NOT add study resources.
+9. Do not use Course Outcomes as study topics.
 
-11. Do NOT add chapter numbers.
+10. Do not use textbook names as topics.
 
-12. Do NOT add page numbers.
+11. Do not repeat the same topic unless it is
+    explicitly a review session.
 
-13. Do NOT add textbook references.
+12. Distribute related syllabus topics across
+    the available study days.
 
-14. Do NOT add reference codes such as:
-    T2: 8.2
-    T2: 8.3
-    Chapter 8
-    Page 120
+13. Cover foundational material before later material
+    where appropriate.
 
-15. Do NOT add examples that are not explicitly
-    present in the syllabus.
+14. Create exactly {duration_days} days.
 
-16. Every topic in the Topics column must come
-    directly from the supplied syllabus.
+15. Every day must contain exactly
+    {hours_per_day} hours.
 
-17. The Study Goal must describe the topics
-    assigned to that day without introducing
-    new subject matter.
+16. Every topic must be traceable to the supplied
+    syllabus.
 
-18. Keep exactly {hours_per_day} hours per day.
+17. Keep Topics concise.
 
-19. Cover the available syllabus topics across
-    exactly {duration_days} days.
+18. Keep Study Goal concise.
 
-20. Do not add explanations before or after
-    the table.
 
-==================================================
-OUTPUT FORMAT
-==================================================
+OUTPUT FORMAT:
 
 Return ONLY a markdown table.
 
-Use exactly these columns:
+The table MUST have exactly these columns:
 
-| Day | Unit | Topics | Duration | Study Goal |
-|-----|------|--------|----------|------------|
+| Day | Subject | Unit | Topics | Duration | Study Goal |
+|-----|---------|------|--------|----------|------------|
 
-The Unit column must preserve the official
-syllabus unit information.
+Create exactly {duration_days} data rows.
 
-The Topics column must contain only syllabus
-topics.
-
-The Duration column must contain exactly
-{hours_per_day} hours for each day.
-
-The Study Goal must be based only on the topics
-assigned to that day.
+Do not write any explanation before or after the table.
 """
 
+    # -----------------------------------------------------
+    # Call LLM
+    # -----------------------------------------------------
 
-    # =====================================================
-    # CALL GROQ
-    # =====================================================
+    try:
 
-    print("\n===== CALLING GROQ =====\n")
+        response = get_llm().invoke(prompt)
 
-    response = llm.invoke(prompt)
-
-
-    # =====================================================
-    # DISPLAY RESPONSE OBJECT
-    # =====================================================
-
-    print("\n===== RESPONSE OBJECT =====")
-    print(response)
-
-
-    # =====================================================
-    # EXTRACT RESPONSE
-    # =====================================================
-
-    answer = response.content
-
-
-    if isinstance(answer, list):
-
-        answer = "\n".join(
-            str(item)
-            for item in answer
-        )
-
-
-    answer = str(answer).strip()
-
-
-    # =====================================================
-    # DEBUG INFORMATION
-    # =====================================================
-
-    print("\n===== LLM RESPONSE LENGTH =====")
-    print(len(answer))
-
-    print("\n===== RAW LLM RESPONSE =====")
-    print(repr(answer))
-
-
-    # =====================================================
-    # RETRY IF EMPTY
-    # =====================================================
-
-    if not answer:
-
-        print(
-            "\n===== EMPTY RESPONSE - RETRYING =====\n"
-        )
-
-
-        retry_prompt = f"""
-Create a {duration_days}-day study plan for
-{subject}.
-
-Use ONLY the official syllabus below.
-
-OFFICIAL SYLLABUS:
-
-{syllabus_context}
-
-Study time:
-{hours_per_day} hours per day.
-
-STRICT REQUIREMENTS:
-
-- Use only topics explicitly written in the syllabus.
-- Preserve the official unit names and numbering.
-- Do not invent or rename units.
-- Do not invent topics.
-- Do not use outside knowledge.
-- Do not add textbooks.
-- Do not add resources.
-- Do not add chapter numbers.
-- Do not add page numbers.
-- Do not add textbook references.
-- Do not add codes such as T2: 8.2.
-- Keep {hours_per_day} hours per day.
-- Do not add explanations.
-
-Return ONLY:
-
-| Day | Unit | Topics | Duration | Study Goal |
-|-----|------|--------|----------|------------|
-
-Create exactly {duration_days} days.
-"""
-
-
-        retry_response = llm.invoke(
-            retry_prompt
-        )
-
-
-        # -------------------------------------------------
-        # Display retry response
-        # -------------------------------------------------
-
-        print("\n===== RETRY RESPONSE =====")
-        print(retry_response)
-
-
-        # -------------------------------------------------
-        # Extract retry response
-        # -------------------------------------------------
-
-        answer = retry_response.content
-
+        answer = response.content
 
         if isinstance(answer, list):
 
@@ -398,86 +399,76 @@ Create exactly {duration_days} days.
                 for item in answer
             )
 
-
         answer = str(answer).strip()
 
+    except Exception as exc:
 
-        # -------------------------------------------------
-        # Retry debugging
-        # -------------------------------------------------
+        error_text = str(exc)
 
-        print("\n===== RETRY RESPONSE LENGTH =====")
-        print(len(answer))
+        if (
+            "413" in error_text
+            or "Request too large" in error_text
+        ):
 
-        print("\n===== RAW RETRY RESPONSE =====")
-        print(repr(answer))
+            return (
+                "The study-plan request was too large for "
+                "the current LLM request limit. Please try "
+                "again with fewer subjects or fewer study days.",
+                documents
+            )
 
+        raise
 
-    # =====================================================
-    # FINAL EMPTY RESPONSE CHECK
-    # =====================================================
+    # -----------------------------------------------------
+    # Basic response check
+    # -----------------------------------------------------
 
     if not answer:
 
         return (
-            "The study planner could not generate a plan. "
-            "Please try again.",
+            "The study planner did not return a valid plan.",
             documents
         )
 
-
-    # =====================================================
-    # RETURN PLAN
-    # =====================================================
-
-    return answer, documents
-
-
-# =========================================================
-# TEST
-# =========================================================
-
-if __name__ == "__main__":
-
-    subject = "DBMS"
-
-    duration_days = 7
-
-    hours_per_day = 2
-
-
     # -----------------------------------------------------
-    # Generate study plan
+    # Extract clean table
     # -----------------------------------------------------
 
-    plan, documents = create_study_plan(
-        subject,
-        duration_days,
-        hours_per_day
-    )
+    table = extract_plan_table(answer)
 
+    if not table:
 
-    # -----------------------------------------------------
-    # Display generated plan
-    # -----------------------------------------------------
-
-    print(
-        "\n===== SYLLABUS-AWARE STUDY PLAN =====\n"
-    )
-
-    print(plan)
-
-
-    # -----------------------------------------------------
-    # Display sources
-    # -----------------------------------------------------
-
-    print("\n===== SOURCES =====\n")
-
-
-    for document in documents:
-
-        print(
-            f"- {document.metadata.get('source')} "
-            f"(page {document.metadata.get('page')})"
+        return (
+            "The study planner returned an invalid plan format.",
+            documents
         )
+
+    # -----------------------------------------------------
+    # Check number of generated days
+    # -----------------------------------------------------
+
+    table_lines = [
+        line.strip()
+        for line in table.splitlines()
+        if line.strip().startswith("|")
+    ]
+
+    data_row_count = max(
+        0,
+        len(table_lines) - 2
+    )
+
+    if data_row_count != duration_days:
+
+        return (
+            f"The study planner generated "
+            f"{data_row_count} days instead of "
+            f"{duration_days}.",
+            documents
+        )
+
+    # -----------------------------------------------------
+    # Return clean table
+    # -----------------------------------------------------
+
+    return table, documents
