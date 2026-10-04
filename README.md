@@ -12,7 +12,9 @@ Built with LangGraph, Groq LLM, ChromaDB, and Streamlit.
 - **Academic Q&A**: Ask questions about college regulations, syllabus, attendance, exams, credits, etc.
 - **Study Planner**: Generate personalized study plans based on official syllabus documents
 - **Plan Modification**: Adjust existing study plans (move topics, change duration, etc.)
-- **Intent Classification**: Automatically routes queries to the appropriate agent
+- **Intent Classification**: Automatically routes queries to the appropriate agent (ACADEMIC, STUDY_PLAN, GENERAL, TOOL)
+- **Calculator Tool**: Handles computational operations and calculations
+- **Response Validation**: All responses are reviewed and validated before being returned
 
 ## Tech Stack
 
@@ -166,30 +168,40 @@ python agents/test_plan_flow.py
 ```
 AI-College-Academic-Assistant/
 ├── agents/
-│   ├── academic_agent.py    # Handles academic Q&A
-│   ├── app_agent.py         # Main agent entry point
-│   ├── general_agent.py     # Handles general queries
-│   ├── graph.py             # LangGraph workflow
-│   ├── router.py            # Intent classifier
-│   ├── state.py             # Agent state definition
-│   ├── study_agent.py       # Handles study plan creation/modification
-│   ├── test_graph.py        # Graph integration tests
-│   └── test_plan_flow.py    # Plan flow tests
+│   ├── academic_agent.py       # Handles academic Q&A
+│   ├── app_agent.py            # Main agent entry point
+│   ├── general_agent.py        # Handles general queries
+│   ├── graph.py                # LangGraph workflow
+│   ├── router.py               # Intent classifier
+│   ├── state.py                # Agent state definition
+│   ├── study_agent.py          # Handles study plan creation/modification
+│   ├── workflow_nodes.py       # LangGraph workflow node implementations
+│   ├── test_graph.py           # Graph integration tests
+│   └── test_plan_flow.py       # Plan flow tests
 ├── data/
-│   ├── academic_regulations/    # College regulation PDFs
-│   └── department_syllabus/    # Syllabus PDFs
+│   ├── academic_regulations/   # College regulation PDFs
+│   └── department_syllabus/   # Syllabus PDFs
+├── docs/
+│   ├── architecture_overview.png      # System architecture diagram
+│   └── langgraph_workflow.png         # LangGraph workflow diagram
 ├── llm/
-│   └── rag_chain.py         # RAG chain for academic queries
+│   ├── rag_chain.py            # RAG chain for academic queries
+│   └── test_groq.py             # Groq LLM tests
 ├── planner/
-│   ├── plan_modifier.py     # Study plan modification logic
-│   └── study_planner.py     # Study plan generation logic
+│   ├── plan_modifier.py        # Study plan modification logic
+│   ├── study_planner.py        # Study plan generation logic
+│   └── test_planner_groq.py    # Planner tests
 ├── rag/
-│   ├── create_vectorstore.py  # Vector store creation script
+│   ├── create_vectorstore.py   # Vector store creation script
 │   ├── load_documents.py       # Document loading utilities
-│   └── retriever.py            # ChromaDB retriever
+│   ├── retriever.py            # ChromaDB retriever
+│   └── test_retrieval.py       # Retrieval tests
 ├── ui/
-│   └── app.py               # Streamlit UI
-├── .env                     # Environment variables (not in git)
+│   └── app.py                  # Streamlit UI
+├── config.py                   # Centralized configuration
+├── logger_config.py            # Logging configuration
+├── .env                        # Environment variables (not in git)
+├── .env.example                # Environment variables template
 ├── .gitignore
 ├── requirements.txt
 └── README.md
@@ -197,10 +209,12 @@ AI-College-Academic-Assistant/
 
 ## How It Works
 
-1. **Intent Classification**: The router classifies user queries into ACADEMIC, STUDY_PLAN, or GENERAL
-2. **Academic Agent**: Uses RAG to retrieve relevant information from college documents
-3. **Study Agent**: Generates or modifies study plans based on syllabus context
-4. **General Agent**: Handles general conversation
+1. **Intent Classification**: The router classifies user queries into ACADEMIC, STUDY_PLAN, GENERAL, or TOOL
+2. **Academic Queries**: The retrieval node fetches relevant documents from ChromaDB, then the RAG chain generates answers grounded in college documents
+3. **Study Plan Requests**: The study planner retrieves syllabus context from the vector store and generates structured study plans; modifications use deterministic logic or LLM-based adjustments
+4. **General Queries**: Handled by the general response node for conversational interactions
+5. **Tool Requests**: Calculator node handles computational operations
+6. **Response Review**: All responses pass through a review node for validation before being returned to the user
 
 ## Notes
 
@@ -210,12 +224,8 @@ AI-College-Academic-Assistant/
 
 ## Future Enhancements
 
-- Dynamic parameter extraction for study plans (subject, duration, hours)
-- Support for multiple subjects beyond DBMS
+- Support for multiple subjects beyond DBMS in study planner
 - User authentication and persistent study plans
 - Progress tracking for study plans
-- Export study plans to different formats
-
-## License
-
-[Add your license here]
+- Export study plans to different formats (PDF, CSV, etc.)
+- Integration with calendar applications
