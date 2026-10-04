@@ -6,12 +6,19 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_chroma import Chroma
 
+from config import EMBEDDING_MODEL, CHROMA_PERSIST_DIR, CHROMA_COLLECTION_NAME
+
 
 DATA_DIR = "data"
-VECTOR_DB_DIR = "chroma_db"
 
 
 def load_all_documents():
+    """
+    Load all PDF documents from the data directories.
+
+    Returns:
+        list: List of loaded documents with metadata indicating document type.
+    """
     documents = []
 
     for folder in [
@@ -45,7 +52,16 @@ def load_all_documents():
 
 
 def create_vectorstore():
+    """
+    Create the vector database from PDF documents.
 
+    This function loads all PDF documents from the data directories,
+    splits them into chunks, creates embeddings, and stores them in
+    ChromaDB.
+
+    Raises:
+        RuntimeError: If no PDF documents are found in the data folders.
+    """
     print("\n===== LOADING DOCUMENTS =====")
 
     documents = load_all_documents()
@@ -79,13 +95,13 @@ def create_vectorstore():
 
     # Remove old database so old/incomplete indexing
     # does not remain mixed with the new one.
-    if os.path.exists(VECTOR_DB_DIR):
-        shutil.rmtree(VECTOR_DB_DIR)
+    if os.path.exists(CHROMA_PERSIST_DIR):
+        shutil.rmtree(CHROMA_PERSIST_DIR)
 
     print("\n===== CREATING EMBEDDINGS =====")
 
     embeddings = HuggingFaceEmbeddings(
-        model_name="sentence-transformers/all-MiniLM-L6-v2"
+        model_name=EMBEDDING_MODEL
     )
 
     print("\n===== BUILDING CHROMA =====")
@@ -93,12 +109,12 @@ def create_vectorstore():
     Chroma.from_documents(
         documents=chunks,
         embedding=embeddings,
-        persist_directory=VECTOR_DB_DIR,
-        collection_name="college_knowledge"
+        persist_directory=CHROMA_PERSIST_DIR,
+        collection_name=CHROMA_COLLECTION_NAME
     )
 
     print("\nVector database created successfully.")
-    print(f"Location: {VECTOR_DB_DIR}/")
+    print(f"Location: {CHROMA_PERSIST_DIR}/")
 
 
 if __name__ == "__main__":

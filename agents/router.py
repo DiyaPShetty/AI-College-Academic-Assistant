@@ -1,20 +1,36 @@
 import json
 import re
 
-from dotenv import load_dotenv
 from langchain_groq import ChatGroq
 
-load_dotenv()
+from config import GROQ_MODEL, LLM_TEMPERATURE
 
 
 def get_llm():
+    """
+    Initialize and return a ChatGroq LLM instance.
+
+    Returns:
+        ChatGroq: Configured LLM instance using GPT-OSS-20B model
+            with zero temperature for deterministic outputs.
+    """
     return ChatGroq(
-        model="openai/gpt-oss-20b",
-        temperature=0
+        model=GROQ_MODEL,
+        temperature=LLM_TEMPERATURE
     )
 
 
 def _extract_json(text: str) -> dict:
+    """
+    Extract JSON object from text, handling markdown code fences.
+
+    Args:
+        text (str): Text that may contain JSON, possibly wrapped in
+            markdown code fences.
+
+    Returns:
+        dict: Parsed JSON object, or empty dict if parsing fails.
+    """
     text = text.strip()
 
     # Remove markdown code fences if the model adds them
@@ -33,12 +49,30 @@ def _extract_json(text: str) -> dict:
 
 
 def route_query(state):
+    """
+    Classify user query intent and rewrite for context.
+
+    This function uses the LLM to classify the user's query into one
+    of four intents (ACADEMIC, STUDY_PLAN, GENERAL, TOOL) and rewrites
+    it to be standalone by resolving references from conversation history.
+
+    Args:
+        state (dict): Agent state containing:
+            - user_query (str): The student's question.
+            - conversation_history (list): Previous messages.
+
+    Returns:
+        dict: Updated state with:
+            - intent (str): Classified intent.
+            - rewritten_query (str): Context-independent query.
+            - needs_clarification (bool): Whether clarification is needed.
+    """
     query = state["user_query"]
     history = state.get("conversation_history", [])
 
     history_text = "\n".join(
         f"{m.get('role', '')}: {m.get('content', '')}"
-        for m in history[-6:]
+        for m in history[-CONVERSATION_HISTORY_LIMIT:]
     )
 
     prompt = f"""

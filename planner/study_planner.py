@@ -1,9 +1,15 @@
-from dotenv import load_dotenv
 from langchain_groq import ChatGroq
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_chroma import Chroma
 
-load_dotenv()
+from config import (
+    GROQ_MODEL,
+    LLM_TEMPERATURE,
+    LLM_MAX_TOKENS,
+    EMBEDDING_MODEL,
+    CHROMA_PERSIST_DIR,
+    CHROMA_COLLECTION_NAME
+)
 
 
 # =========================================================
@@ -11,10 +17,17 @@ load_dotenv()
 # =========================================================
 
 def get_llm():
+    """
+    Initialize and return a ChatGroq LLM instance for study planning.
+
+    Returns:
+        ChatGroq: Configured LLM instance using GPT-OSS-20B model
+            with zero temperature and 4096 max tokens for longer outputs.
+    """
     return ChatGroq(
-        model="openai/gpt-oss-20b",
-        temperature=0,
-        max_tokens=4096
+        model=GROQ_MODEL,
+        temperature=LLM_TEMPERATURE,
+        max_tokens=LLM_MAX_TOKENS
     )
 
 
@@ -23,14 +36,20 @@ def get_llm():
 # =========================================================
 
 def get_vectorstore():
+    """
+    Initialize and return a ChromaDB vector store instance.
 
+    Returns:
+        Chroma: Configured ChromaDB instance connected to the local
+            chroma_db directory with college_knowledge collection.
+    """
     embeddings = HuggingFaceEmbeddings(
-        model_name="sentence-transformers/all-MiniLM-L6-v2"
+        model_name=EMBEDDING_MODEL
     )
 
     return Chroma(
-        persist_directory="chroma_db",
-        collection_name="college_knowledge",
+        persist_directory=CHROMA_PERSIST_DIR,
+        collection_name=CHROMA_COLLECTION_NAME,
         embedding_function=embeddings
     )
 

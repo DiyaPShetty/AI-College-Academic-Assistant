@@ -1,7 +1,6 @@
-from dotenv import load_dotenv
 from langchain_groq import ChatGroq
 
-load_dotenv()
+from config import GROQ_MODEL, LLM_TEMPERATURE, CONVERSATION_HISTORY_LIMIT
 
 
 NO_INFO_MESSAGE = (
@@ -11,9 +10,16 @@ NO_INFO_MESSAGE = (
 
 
 def get_llm():
+    """
+    Initialize and return a ChatGroq LLM instance.
+
+    Returns:
+        ChatGroq: Configured LLM instance using GPT-OSS-20B model
+            with zero temperature for deterministic outputs.
+    """
     return ChatGroq(
-        model="openai/gpt-oss-20b",
-        temperature=0
+        model=GROQ_MODEL,
+        temperature=LLM_TEMPERATURE
     )
 
 
@@ -22,7 +28,23 @@ def generate_academic_answer(
     documents,
     conversation_history=None
 ):
+    """
+    Generate an academic answer using retrieved documents as context.
 
+    This function constructs a prompt with the retrieved document context
+    and uses the LLM to generate an answer that is grounded in the
+    official college documents.
+
+    Args:
+        question (str): The student's question.
+        documents (list): List of retrieved documents from the vector store.
+        conversation_history (list, optional): Previous conversation messages.
+            Defaults to None.
+
+    Returns:
+        str: Generated answer grounded in the document context, or a
+            fallback message if no documents are provided.
+    """
     if not documents:
         return NO_INFO_MESSAGE
 
@@ -58,7 +80,7 @@ Content:
     if conversation_history:
         history_text = "\n".join(
             f"{m.get('role')}: {m.get('content')}"
-            for m in conversation_history[-6:]
+            for m in conversation_history[-CONVERSATION_HISTORY_LIMIT:]
         )
 
     prompt = f"""

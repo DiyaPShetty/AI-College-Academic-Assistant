@@ -1,9 +1,8 @@
 import re
 
-from dotenv import load_dotenv
 from langchain_groq import ChatGroq
 
-load_dotenv()
+from config import GROQ_MODEL, LLM_TEMPERATURE, LLM_MAX_TOKENS
 
 
 # =========================================================
@@ -11,11 +10,17 @@ load_dotenv()
 # =========================================================
 
 def get_llm():
+    """
+    Initialize and return a ChatGroq LLM instance for plan modification.
 
+    Returns:
+        ChatGroq: Configured LLM instance using GPT-OSS-20B model
+            with zero temperature and 4096 max tokens for longer outputs.
+    """
     return ChatGroq(
-        model="openai/gpt-oss-20b",
-        temperature=0,
-        max_tokens=4096
+        model=GROQ_MODEL,
+        temperature=LLM_TEMPERATURE,
+        max_tokens=LLM_MAX_TOKENS
     )
 
 
@@ -24,7 +29,18 @@ def get_llm():
 # =========================================================
 
 def parse_markdown_table(plan):
+    """
+    Parse a markdown table into headers and data rows.
 
+    Args:
+        plan (str): Markdown table string.
+
+    Returns:
+        tuple: (headers, rows) where:
+            - headers (list): List of column header strings.
+            - rows (list): List of dicts mapping headers to cell values.
+            Returns (None, None) if parsing fails.
+    """
     lines = [
         line.strip()
         for line in plan.splitlines()
@@ -75,7 +91,16 @@ def parse_markdown_table(plan):
 # =========================================================
 
 def build_markdown_table(headers, rows):
+    """
+    Build a markdown table from headers and data rows.
 
+    Args:
+        headers (list): List of column header strings.
+        rows (list): List of dicts mapping headers to cell values.
+
+    Returns:
+        str: Formatted markdown table string.
+    """
     output = []
 
     output.append(

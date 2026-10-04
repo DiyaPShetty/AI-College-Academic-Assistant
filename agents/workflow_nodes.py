@@ -2,16 +2,13 @@ from datetime import date
 import json
 import re
 
-from dotenv import load_dotenv
 from langchain_groq import ChatGroq
 
+from config import GROQ_MODEL, LLM_TEMPERATURE, RETRIEVAL_THRESHOLD, CONVERSATION_HISTORY_LIMIT
 from rag.retriever import retrieve_with_scores
 from llm.rag_chain import generate_academic_answer
 from planner.study_planner import create_study_plan
 from planner.plan_modifier import modify_study_plan
-
-
-load_dotenv()
 
 
 # =========================================================
@@ -143,10 +140,16 @@ def detect_hours_from_query(query):
 # =========================================================
 
 def get_llm():
+    """
+    Initialize and return a ChatGroq LLM instance.
 
+    Returns:
+        ChatGroq: Configured LLM instance using GPT-OSS-20B model
+            with zero temperature for deterministic outputs.
+    """
     return ChatGroq(
-        model="openai/gpt-oss-20b",
-        temperature=0
+        model=GROQ_MODEL,
+        temperature=LLM_TEMPERATURE
     )
 
 
@@ -155,7 +158,22 @@ def get_llm():
 # =========================================================
 
 def retrieval_node(state):
+    """
+    Retrieve relevant documents from the vector database.
 
+    Performs semantic search using the rewritten query and scores
+    results for relevance filtering.
+
+    Args:
+        state (dict): Agent state containing the query.
+
+    Returns:
+        dict: Updated state with:
+            - retrieved_docs (list): List of retrieved documents.
+            - retrieval_scores (list): Relevance scores for each document.
+            - retrieval_relevant (bool): Whether any document exceeded
+                the relevance threshold (0.30).
+    """
     query = (
         state.get("rewritten_query")
         or state["user_query"]
@@ -170,7 +188,7 @@ def retrieval_node(state):
     relevant = bool(
         documents
         and scores
-        and max(scores) >= 0.30
+        and max(scores) >= RETRIEVAL_THRESHOLD
     )
 
     return {
@@ -186,7 +204,24 @@ def retrieval_node(state):
 # =========================================================
 
 def academic_generation_node(state):
+    """
+    Generate an academic answer using retrieved documents.
 
+    If no relevant documents were found, returns a fallback message.
+    Otherwise, uses the RAG chain to generate an answer based on
+    the retrieved context.
+
+    Args:
+        state (dict): Agent state containing:
+            - retrieval_relevant (bool): Whether documents were found.
+            - retrieved_docs (list): Retrieved documents.
+            - rewritten_query (str): Context-independent query.
+            - user_query (str): Original query.
+            - conversation_history (list): Previous messages.
+
+    Returns:
+        dict: Updated state with the generated answer.
+    """
     if not state.get("retrieval_relevant", False):
 
         return {
@@ -824,7 +859,7 @@ def general_generation_node(state):
         for m in state.get(
             "conversation_history",
             []
-        )[-6:]
+        )[-CONVERSATION_HISTORY_LIMIT:]
     )
 
     prompt = f"""

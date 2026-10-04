@@ -32,7 +32,19 @@ def route_after_analysis(
     "general",
     "tool"
 ]:
+    """
+    Route the workflow based on query intent classification.
 
+    Args:
+        state (dict): Agent state containing the classified intent.
+
+    Returns:
+        Literal: Next node name based on intent:
+            - "academic" for ACADEMIC intent
+            - "study" for STUDY_PLAN intent
+            - "tool" for TOOL intent
+            - "general" for GENERAL or unknown intents
+    """
     intent = state.get("intent", "GENERAL")
 
     if intent == "ACADEMIC":
@@ -52,7 +64,19 @@ def route_after_analysis(
 # =========================================================
 
 def route_after_retrieval(state):
+    """
+    Route after information retrieval.
 
+    Currently, this always routes to the generate node regardless
+    of retrieval relevance. The generation node handles the case
+    where no relevant documents were found.
+
+    Args:
+        state (dict): Agent state containing retrieval_relevant flag.
+
+    Returns:
+        str: Always returns "generate".
+    """
     if state.get("retrieval_relevant", False):
         return "generate"
 
