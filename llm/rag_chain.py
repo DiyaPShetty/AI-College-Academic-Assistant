@@ -1,12 +1,13 @@
-import os
-
 from dotenv import load_dotenv
 from langchain_groq import ChatGroq
 
-from rag.retriever import get_retriever
-
-
 load_dotenv()
+
+
+NO_INFO_MESSAGE = (
+    "I couldn't find this information in the available "
+    "college documents."
+)
 
 
 def get_llm():
@@ -16,62 +17,97 @@ def get_llm():
     )
 
 
-def ask_academic_assistant(question):
-    retriever = get_retriever()
+def generate_academic_answer(
+    question,
+    documents,
+    conversation_history=None
+):
 
-    # Retrieve relevant college information
-    documents = retriever.invoke(question)
+    if not documents:
+        return NO_INFO_MESSAGE
 
-    # Combine retrieved chunks
-    context = "\n\n".join(
-        document.page_content
-        for document in documents
-    )
+    context_parts = []
+
+    for i, document in enumerate(documents, start=1):
+
+        source = document.metadata.get(
+            "source",
+            "Unknown source"
+        )
+
+        page = document.metadata.get(
+            "page",
+            "Unknown"
+        )
+
+        context_parts.append(
+            f"""
+SOURCE {i}
+Document: {source}
+Page: {page}
+
+Content:
+{document.page_content}
+"""
+        )
+
+    context = "\n".join(context_parts)
+
+    history_text = ""
+
+    if conversation_history:
+        history_text = "\n".join(
+            f"{m.get('role')}: {m.get('content')}"
+            for m in conversation_history[-6:]
+        )
 
     prompt = f"""
-You are an AI academic assistant for NMAM Institute of Technology.
+You are the academic assistant for NMAM Institute of Technology.
 
-Answer the student's question using ONLY the information provided
-in the college documents below.
+Answer the student's question ONLY using the official
+college document context below.
 
-If the answer cannot be found in the provided documents, say:
-"I couldn't find this information in the available college documents."
+CONVERSATION:
+{history_text}
 
-Do not invent college rules, regulations, dates, marks, or requirements.
-
-College document context:
--------------------------
-{context}
--------------------------
-
-Student question:
+QUESTION:
 {question}
 
-Give a clear and concise answer.
+OFFICIAL DOCUMENT CONTEXT:
+{context}
+
+STRICT RULES:
+
+1. Do not invent college rules.
+2. Do not invent dates, marks, credits or requirements.
+3. Do not use outside knowledge for college-specific facts.
+4. If the context does not support the answer, say exactly:
+
+"I couldn't find this information in the available college documents."
+
+5. Cite supporting sources using:
+[Source: filename, Page: X]
+
+Give a clear answer.
 """
 
-    llm = get_llm()
+    response = get_llm().invoke(prompt)
 
-    response = llm.invoke(prompt)
-
-    return response.content, documents
+    return str(response.content).strip()
 
 
-if __name__ == "__main__":
-    question = "What is the minimum attendance requirement for students?"
+def ask_academic_assistant(question):
 
-    answer, documents = ask_academic_assistant(question)
+    # Backward-compatible helper for old tests.
+    from rag.retriever import get_retriever
 
-    print("\nQUESTION:")
-    print(question)
+    retriever = get_retriever()
 
-    print("\nANSWER:")
-    print(answer)
+    documents = retriever.invoke(question)
 
-    print("\nSOURCES:")
+    answer = generate_academic_answer(
+        question,
+        documents
+    )
 
-    for document in documents:
-        print(
-            f"- {document.metadata.get('source')} "
-            f"(page {document.metadata.get('page')})"
-        )
+    return answer, documents
