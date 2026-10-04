@@ -1,3 +1,5 @@
+from typing import Optional, Tuple, List, Dict
+
 import re
 
 from langchain_groq import ChatGroq
@@ -28,7 +30,7 @@ def get_llm():
 # TABLE PARSER
 # =========================================================
 
-def parse_markdown_table(plan):
+def parse_markdown_table(plan: str) -> Tuple[Optional[List[str]], Optional[List[Dict[str, str]]]]:
     """
     Parse a markdown table into headers and data rows.
 
@@ -90,7 +92,7 @@ def parse_markdown_table(plan):
 # TABLE BUILDER
 # =========================================================
 
-def build_markdown_table(headers, rows):
+def build_markdown_table(headers: List[str], rows: List[Dict[str, str]]) -> str:
     """
     Build a markdown table from headers and data rows.
 
@@ -133,8 +135,16 @@ def build_markdown_table(headers, rows):
 # DAY NUMBER EXTRACTION
 # =========================================================
 
-def extract_day_numbers(text):
+def extract_day_numbers(text: str) -> List[int]:
+    """
+    Extract day numbers from text.
 
+    Args:
+        text (str): Text containing day references.
+
+    Returns:
+        List[int]: List of extracted day numbers.
+    """
     matches = re.findall(
         r"\bday\s*(\d+)\b",
         text.lower()
@@ -151,10 +161,22 @@ def extract_day_numbers(text):
 # =========================================================
 
 def deterministic_move_day(
-    current_plan,
-    modification
-):
+    current_plan: str,
+    modification: str
+) -> Optional[str]:
+    """
+    Perform deterministic day swapping for study plan modifications.
 
+    This function handles simple "move Day X to Day Y" requests by
+    swapping the content of the two days.
+
+    Args:
+        current_plan (str): Current study plan in markdown table format.
+        modification (str): User's modification request.
+
+    Returns:
+        Optional[str]: Modified study plan, or None if pattern doesn't match.
+    """
     headers, rows = parse_markdown_table(
         current_plan
     )
@@ -258,10 +280,19 @@ def deterministic_move_day(
 # =========================================================
 
 def llm_modify_study_plan(
-    current_plan,
-    modification
-):
+    current_plan: str,
+    modification: str
+) -> str:
+    """
+    Use LLM to modify a study plan based on user request.
 
+    Args:
+        current_plan (str): Current study plan in markdown table format.
+        modification (str): User's modification request.
+
+    Returns:
+        str: Modified study plan in markdown table format.
+    """
     prompt = f"""
 You are a college study-plan modification assistant.
 
@@ -326,10 +357,22 @@ No explanation.
 # =========================================================
 
 def modify_study_plan(
-    current_plan,
-    modification
-):
+    current_plan: str,
+    modification: str
+) -> str:
+    """
+    Modify a study plan based on user request.
 
+    This function first attempts deterministic modifications (e.g., day swapping),
+    then falls back to LLM-based modifications for more complex requests.
+
+    Args:
+        current_plan (str): Current study plan in markdown table format.
+        modification (str): User's modification request.
+
+    Returns:
+        str: Modified study plan in markdown table format, or error message.
+    """
     if not current_plan.strip():
 
         return (

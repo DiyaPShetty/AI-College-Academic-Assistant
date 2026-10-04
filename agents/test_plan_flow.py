@@ -1,3 +1,11 @@
+"""
+Test script for study plan creation and modification flow.
+
+This script tests the complete study plan workflow:
+1. Creating a new study plan
+2. Modifying an existing study plan
+"""
+
 from agents.app_agent import run_agent
 
 

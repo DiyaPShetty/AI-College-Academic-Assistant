@@ -1,3 +1,10 @@
+"""
+Test script for Groq LLM connection.
+
+This script verifies that the Groq API key is correctly configured
+and that the LLM can generate responses.
+"""
+
 import os
 from dotenv import load_dotenv
 from langchain_groq import ChatGroq

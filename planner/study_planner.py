@@ -1,3 +1,5 @@
+from typing import List, Tuple, Optional
+
 from langchain_groq import ChatGroq
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_chroma import Chroma
@@ -58,8 +60,18 @@ def get_vectorstore():
 # SYLLABUS RETRIEVAL
 # =========================================================
 
-def get_syllabus_context(subjects):
+def get_syllabus_context(subjects: List[str]) -> Tuple[str, List]:
+    """
+    Retrieve syllabus context for the specified subjects.
 
+    Args:
+        subjects (List[str]): List of subject names.
+
+    Returns:
+        Tuple[str, List]: (context_string, documents) where:
+            - context_string: Formatted context from retrieved documents.
+            - documents: List of retrieved document objects.
+    """
     if isinstance(subjects, str):
         subjects = [subjects]
 
@@ -158,8 +170,16 @@ PAGE: {page}
 # EXTRACT STUDY PLAN TABLE
 # =========================================================
 
-def extract_plan_table(answer):
+def extract_plan_table(answer: str) -> str:
+    """
+    Extract a clean markdown table from the LLM response.
 
+    Args:
+        answer (str): The LLM response potentially containing a table.
+
+    Returns:
+        str: Cleaned markdown table, or empty string if extraction fails.
+    """
     if not answer:
         return ""
 
@@ -273,11 +293,23 @@ def extract_plan_table(answer):
 # =========================================================
 
 def create_study_plan(
-    subjects,
-    duration_days,
-    hours_per_day
-):
+    subjects: List[str],
+    duration_days: int,
+    hours_per_day: float
+) -> Tuple[str, List]:
+    """
+    Create a study plan based on subjects, duration, and daily hours.
 
+    Args:
+        subjects (List[str]): List of subject names.
+        duration_days (int): Number of study days.
+        hours_per_day (float): Study hours per day.
+
+    Returns:
+        Tuple[str, List]: (plan_table, documents) where:
+            - plan_table: Markdown table containing the study plan.
+            - documents: List of retrieved syllabus documents.
+    """
     if isinstance(subjects, str):
         subjects = [subjects]
 

@@ -1,3 +1,5 @@
+from typing import Optional, List, Dict, Any
+
 from agents.graph import build_graph
 
 
@@ -5,10 +7,10 @@ graph = build_graph()
 
 
 def run_agent(
-    user_query,
-    current_plan="",
-    conversation_history=None
-):
+    user_query: str,
+    current_plan: str = "",
+    conversation_history: Optional[List[Dict[str, str]]] = None
+) -> Dict[str, Any]:
     """
     Run the academic assistant agent to process a user query.
 

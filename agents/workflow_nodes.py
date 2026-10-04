@@ -1,4 +1,5 @@
 from datetime import date
+from typing import List, Dict, Any, Tuple, Optional
 import json
 import re
 
@@ -55,14 +56,19 @@ KNOWN_SUBJECTS = {
 # DETERMINISTIC STUDY-PLAN EXTRACTION HELPERS
 # =========================================================
 
-def detect_subjects_from_query(query):
+def detect_subjects_from_query(query: str) -> List[str]:
     """
     Detect known subjects directly from the user's query.
 
     This acts as a fallback if the LLM fails to extract
     the subject correctly.
-    """
 
+    Args:
+        query (str): The user's query string.
+
+    Returns:
+        List[str]: List of detected subject names.
+    """
     query_lower = query.lower()
 
     found = []
@@ -91,15 +97,20 @@ def detect_subjects_from_query(query):
     return found
 
 
-def detect_duration_from_query(query):
+def detect_duration_from_query(query: str) -> Optional[int]:
     """
     Detect expressions such as:
 
     7 days
     10 days
     2 day
-    """
 
+    Args:
+        query (str): The user's query string.
+
+    Returns:
+        Optional[int]: Number of days, or None if not found.
+    """
     match = re.search(
         r"\b(\d+)\s*(?:day|days)\b",
         query.lower()
@@ -111,7 +122,7 @@ def detect_duration_from_query(query):
     return None
 
 
-def detect_hours_from_query(query):
+def detect_hours_from_query(query: str) -> Optional[float]:
     """
     Detect expressions such as:
 
@@ -120,8 +131,13 @@ def detect_hours_from_query(query):
     2 hrs
     1.5 hours
     2 hours per day
-    """
 
+    Args:
+        query (str): The user's query string.
+
+    Returns:
+        Optional[float]: Number of hours, or None if not found.
+    """
     match = re.search(
         r"\b(\d+(?:\.\d+)?)\s*"
         r"(?:hour|hours|hr|hrs)"
@@ -249,8 +265,23 @@ def academic_generation_node(state):
 # STUDY PLAN PARAMETER EXTRACTION
 # =========================================================
 
-def extract_plan_parameters(query):
+def extract_plan_parameters(query: str) -> Tuple[List[str], Optional[int], Optional[float], Optional[str]]:
+    """
+    Extract study plan parameters from a user query.
 
+    This function uses both LLM extraction and deterministic fallback
+    to extract subjects, duration, hours per day, and exam date.
+
+    Args:
+        query (str): The user's query string.
+
+    Returns:
+        Tuple[List[str], Optional[int], Optional[float], Optional[str]]:
+            - subjects: List of subject names.
+            - duration_days: Number of study days, or None.
+            - hours_per_day: Hours per day, or None.
+            - exam_date: Exam date in YYYY-MM-DD format, or None.
+    """
     prompt = f"""
 Extract study-plan information from this student request.
 

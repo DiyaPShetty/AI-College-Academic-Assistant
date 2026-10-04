@@ -55,6 +55,7 @@ Built with LangGraph, Groq LLM, ChromaDB, and Streamlit.
      ```
      GROQ_API_KEY=your_api_key_here
      ```
+   - See `.env.example` for reference
 
 5. **Prepare the vector database**
    - Place your PDF documents in the appropriate directories:
@@ -65,6 +66,50 @@ Built with LangGraph, Groq LLM, ChromaDB, and Streamlit.
      python rag/create_vectorstore.py
      ```
    - This will create a `chroma_db/` directory with the vector embeddings
+
+## Troubleshooting
+
+### Missing Environment Variables
+**Error:** `ValueError: Missing required environment variables: GROQ_API_KEY`
+
+**Solution:**
+- Ensure you have created a `.env` file in the project root
+- Add your Groq API key: `GROQ_API_KEY=your_api_key_here`
+- Get a free API key from [https://console.groq.com/](https://console.groq.com/)
+
+### Vector Database Not Found
+**Error:** `ValueError: ChromaDB collection 'college_knowledge' does not exist`
+
+**Solution:**
+- Ensure you have run `python rag/create_vectorstore.py`
+- Verify that PDF documents exist in `data/academic_regulations/` and `data/department_syllabus/`
+- Check that the `chroma_db/` directory was created successfully
+
+### Import Errors
+**Error:** `ModuleNotFoundError: No module named 'config'`
+
+**Solution:**
+- Ensure you are running scripts from the project root directory
+- Verify all dependencies are installed: `pip install -r requirements.txt`
+- If running Streamlit, use: `streamlit run ui/app.py` from the project root
+
+### Streamlit UI Issues
+**Error:** Streamlit fails to start or shows connection errors
+
+**Solution:**
+- Check that the `.env` file is in the project root
+- Verify the Groq API key is valid and has sufficient credits
+- Try clearing the conversation and refreshing the page
+- Check the terminal for detailed error messages
+
+### Study Plan Generation Fails
+**Error:** "I could not find the requested subject in the official department syllabus"
+
+**Solution:**
+- Ensure the subject name matches what's in your syllabus documents
+- The system currently supports DBMS well; other subjects may need syllabus documents
+- Check that the syllabus PDFs are in `data/department_syllabus/`
+- Re-run `python rag/create_vectorstore.py` after adding new documents
 
 ## Usage
 

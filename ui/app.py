@@ -22,6 +22,27 @@ st.set_page_config(
 
 
 # =========================================================
+# CUSTOM CSS
+# =========================================================
+
+st.markdown("""
+<style>
+    .stChatMessage {
+        padding: 1rem;
+        border-radius: 0.5rem;
+        margin-bottom: 1rem;
+    }
+    .stChatMessage[data-testid="stChatMessage"] {
+        background-color: #f0f2f6;
+    }
+    .stChatMessage[data-testid="stChatMessage"][data-type="user"] {
+        background-color: #e3f2fd;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+
+# =========================================================
 # SESSION STATE
 # =========================================================
 
@@ -38,10 +59,14 @@ if "study_plan" not in st.session_state:
 
 st.title("🎓 AI College Academic Assistant")
 
-st.write(
-    "Ask questions about college academics, regulations, "
-    "syllabus, or create and modify personalized study plans."
+st.markdown(
+    """
+    Ask questions about college academics, regulations, syllabus,
+    or create and modify personalized study plans.
+    """
 )
+
+st.divider()
 
 
 # =========================================================
@@ -50,14 +75,30 @@ st.write(
 
 with st.sidebar:
 
-    st.header("System")
+    st.header("📊 System Status")
 
-    st.success("RAG enabled")
-    st.success("LangGraph workflow enabled")
-    st.success("Study planner enabled")
-    st.success("Calculator tool enabled")
+    st.success("✅ RAG enabled")
+    st.success("✅ LangGraph workflow enabled")
+    st.success("✅ Study planner enabled")
+    st.success("✅ Calculator tool enabled")
 
-    if st.button("Clear conversation"):
+    st.divider()
+
+    st.header("💡 Quick Tips")
+
+    st.info("""
+    **Academic Questions:**
+    - "What is the minimum attendance requirement?"
+    - "How many credits are required for graduation?"
+
+    **Study Plans:**
+    - "Create a 7-day study plan for DBMS with 2 hours per day"
+    - "Move Day 5 topics to Day 6"
+    """)
+
+    st.divider()
+
+    if st.button("🗑️ Clear conversation"):
 
         st.session_state.messages = []
         st.session_state.study_plan = ""
@@ -118,14 +159,23 @@ if user_query:
     with st.chat_message("assistant"):
 
         with st.spinner(
-            "Analyzing → retrieving → generating → reviewing..."
+            "🔍 Analyzing → retrieving → generating → reviewing..."
         ):
 
-            result = run_agent(
-                user_query=user_query,
-                current_plan=st.session_state.study_plan,
-                conversation_history=history
-            )
+            try:
+                result = run_agent(
+                    user_query=user_query,
+                    current_plan=st.session_state.study_plan,
+                    conversation_history=history
+                )
+            except Exception as e:
+                st.error(
+                    f"An error occurred while processing your request: {str(e)}"
+                )
+                st.info(
+                    "Please check your environment variables and try again."
+                )
+                st.stop()
 
 
         answer = str(
@@ -148,7 +198,7 @@ if user_query:
         )
 
         st.caption(
-            f"Intent: {intent}"
+            f"🎯 Intent: {intent}"
         )
 
 
@@ -206,9 +256,18 @@ if user_query:
 
         if review_status:
 
-            st.caption(
-                f"Response review: {review_status}"
-            )
+            if review_status == "PASS":
+                st.success(
+                    f"✅ Response review: {review_status}"
+                )
+            elif review_status == "FAILED":
+                st.warning(
+                    f"⚠️ Response review: {review_status}"
+                )
+            else:
+                st.caption(
+                    f"Response review: {review_status}"
+                )
 
 
     # -----------------------------------------------------

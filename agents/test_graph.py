@@ -1,3 +1,11 @@
+"""
+Test script for the LangGraph workflow.
+
+This script tests the graph routing and execution by running
+a series of test queries with different intents (ACADEMIC,
+STUDY_PLAN, GENERAL).
+"""
+
 from agents.graph import build_graph
 
 
