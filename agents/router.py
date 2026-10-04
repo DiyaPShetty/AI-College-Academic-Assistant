@@ -1,5 +1,8 @@
-from langchain_groq import ChatGroq
+import json
+import re
+
 from dotenv import load_dotenv
+from langchain_groq import ChatGroq
 
 load_dotenv()
 
@@ -11,47 +14,100 @@ def get_llm():
     )
 
 
+def _extract_json(text: str) -> dict:
+    text = text.strip()
+
+    # Remove markdown code fences if the model adds them
+    text = re.sub(r"```json\s*", "", text, flags=re.IGNORECASE)
+    text = re.sub(r"```\s*", "", text)
+
+    match = re.search(r"\{.*\}", text, re.DOTALL)
+
+    if not match:
+        return {}
+
+    try:
+        return json.loads(match.group(0))
+    except json.JSONDecodeError:
+        return {}
+
+
 def route_query(state):
-
     query = state["user_query"]
+    history = state.get("conversation_history", [])
 
-    llm = get_llm()
+    history_text = "\n".join(
+        f"{m.get('role', '')}: {m.get('content', '')}"
+        for m in history[-6:]
+    )
 
     prompt = f"""
-Classify the student's query into exactly ONE of these categories:
+You are the question-analysis node of a college academic assistant.
 
+Classify the student's current request.
+
+Allowed intents:
 ACADEMIC
 STUDY_PLAN
 GENERAL
+TOOL
 
 ACADEMIC:
-Questions about college syllabus, subjects, academic regulations,
-attendance, exams, courses, credits, internship rules, etc.
+Questions requiring college documents such as syllabus,
+regulations, attendance, exams, credits, courses, internship
+rules, academic policies, etc.
 
 STUDY_PLAN:
-Requests to create, modify, update, move, remove, or rearrange
-a study plan.
+Creating, modifying, updating, rearranging or removing
+parts of a study plan.
+
+TOOL:
+Requests that require calculation, arithmetic, percentage,
+conversion or another explicit computational operation.
 
 GENERAL:
-Anything that does not belong to the above categories.
+Normal conversation or questions outside the college
+knowledge base that do not require the calculator.
 
-Student query:
+Use the conversation history to understand follow-up questions.
+
+Conversation history:
+{history_text}
+
+Current student request:
 {query}
 
-Return ONLY one word:
-ACADEMIC
-STUDY_PLAN
-GENERAL
+Return ONLY JSON:
+
+{{
+  "intent": "ACADEMIC",
+  "rewritten_query": "standalone version of the student's question",
+  "needs_clarification": false
+}}
+
+Rules:
+- rewritten_query must preserve the student's actual intent.
+- Resolve references such as "this", "that", "mine", "it",
+  "day 5", etc. using conversation history when possible.
+- Do not answer the question.
+- Return exactly one intent.
 """
 
-    response = llm.invoke(prompt)
+    response = get_llm().invoke(prompt)
+    data = _extract_json(response.content)
 
-    intent = response.content.strip().upper()
+    intent = str(data.get("intent", "GENERAL")).upper()
 
-    if intent not in ["ACADEMIC", "STUDY_PLAN", "GENERAL"]:
+    if intent not in {"ACADEMIC", "STUDY_PLAN", "GENERAL", "TOOL"}:
         intent = "GENERAL"
+
+    rewritten_query = data.get("rewritten_query") or query
 
     return {
         **state,
-        "intent": intent
+        "intent": intent,
+        "rewritten_query": rewritten_query,
+        "needs_clarification": bool(
+            data.get("needs_clarification", False)
+        )
     }
