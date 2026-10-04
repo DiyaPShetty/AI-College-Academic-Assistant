@@ -23,6 +23,18 @@ Built with LangGraph, Groq LLM, ChromaDB, and Streamlit.
 - **UI**: Streamlit
 - **RAG**: LangChain
 
+## Architecture
+
+### System overview
+![System architecture](docs/architecture_overview.png)
+
+Shows the layers from the Streamlit UI through the LangGraph agent layer, the LLM/RAG/planner services and the ChromaDB data layer.
+
+### LangGraph workflow
+![LangGraph workflow with intent routing](docs/langgraph_workflow.png)
+
+Shows how question_analysis routes each query (academic, study_plan, general, tool) through its nodes to response_review.
+
 ## Prerequisites
 
 - Python 3.9+
