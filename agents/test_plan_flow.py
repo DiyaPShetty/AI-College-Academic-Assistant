@@ -1,40 +1,52 @@
-from agents.graph import build_graph
-
-
-graph = build_graph()
-
-
-state = {
-    "user_query": "Create a 7 day DBMS study plan",
-    "intent": "",
-    "retrieved_docs": [],
-    "answer": "",
-    "study_plan": "",
-    "modification": ""
-}
+from agents.app_agent import run_agent
 
 
 print("\n==============================")
 print("CREATING STUDY PLAN")
 print("==============================")
 
-result = graph.invoke(state)
+
+result = run_agent(
+    "Create a 7 day DBMS study plan. "
+    "I can study 2 hours per day."
+)
+
 
 print("\nINTENT:")
 print(result["intent"])
+
+print("\nSUBJECTS:")
+print(result["subjects"])
+
+print("\nDAYS:")
+print(result["duration_days"])
+
+print("\nHOURS:")
+print(result["hours_per_day"])
 
 print("\nSTUDY PLAN:")
 print(result["study_plan"])
 
 
-# Now modify the same plan
-result["user_query"] = "Move the Day 5 topics to Day 6."
+# =========================================================
+# MODIFY THE SAME PLAN
+# =========================================================
 
 print("\n==============================")
 print("MODIFYING STUDY PLAN")
 print("==============================")
 
-result = graph.invoke(result)
+
+result["user_query"] = (
+    "Move the Day 5 topics to Day 6."
+)
+
+result = run_agent(
+    user_query=result["user_query"],
+    current_plan=result["study_plan"],
+    conversation_history=[]
+)
+
 
 print("\nINTENT:")
 print(result["intent"])
